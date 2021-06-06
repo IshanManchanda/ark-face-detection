@@ -15,8 +15,9 @@ net = cv2.dnn.readNetFromCaffe(config_path, model_path)
 def find_face(img):
 	# Img, Scale factor (to scale img), size (of output image),
 	# mean (to subtract from img), swapRB (RGB -> BGR), crop
-	blob = cv2.dnn.blobFromImage(img, 1.0, (300, 300), [104, 117, 123], False, False)
-	h, w, _ = img.shape
+	blob = cv2.dnn.blobFromImage(
+		img, 1.0, (300, 300), [104, 117, 123], False, False
+	)
 
 	# Set the input to the NN and feedforward
 	net.setInput(blob)
@@ -29,15 +30,16 @@ def find_face(img):
 	# We pick the detection with maximum confidence
 	max_confidence = 0
 	x1 = y1 = x2 = y2 = 0
+	img_h, img_w, _ = img.shape
 	for i in range(detections.shape[2]):
 		confidence = detections[0, 0, i, 2]
 
 		if confidence > max_confidence:
 			max_confidence = confidence
-			x1 = int(detections[0, 0, i, 3] * w)
-			y1 = int(detections[0, 0, i, 4] * h)
-			x2 = int(detections[0, 0, i, 5] * w)
-			y2 = int(detections[0, 0, i, 6] * h)
+			x1 = int(detections[0, 0, i, 3] * img_w)
+			y1 = int(detections[0, 0, i, 4] * img_h)
+			x2 = int(detections[0, 0, i, 5] * img_w)
+			y2 = int(detections[0, 0, i, 6] * img_h)
 
 	# If we're less than 50% sure, we report negative
 	if max_confidence < 0.5:
@@ -58,8 +60,8 @@ def main():
 	cv2.resizeWindow("game", *size)
 
 	# Create ball object with initial position, velocity, and size
-	pos = np.array([100, 100])
-	vel = 15 * np.array([2, 2])
+	pos = np.array([100, 100], dtype=np.float64)
+	vel = 15 * np.array([2, 2], dtype=np.float64)
 	ball = Ball(pos, vel, 60, size)
 
 	# Initialize variables to hold detected face information
@@ -100,18 +102,25 @@ def main():
 		# Update the ball's position, checking for collisions
 		game_over = ball.update(face_pos, face_radius)
 
-		# If game over, print and wait
+		# Draw the ball on the current frame
+		ball.draw(game_frame)
+
+		# If game over, show message and wait for user to press key
 		if game_over:
+			# TODO: Draw Game Over on the screen
 			# TODO: Show a "press any button to continue on screen"
-			print("Game Over.")
+			print("Game Over. Press any key to continue")
 			k = cv2.waitKey(0)
 			break
 
-		# Otherwise draw the ball and display the frame
-		ball.draw(game_frame)
+		# Draw the frame
 		cv2.imshow("game", game_frame)
-		# TODO: Check if k == ESC and break
+
+		# Check if user has pressed ESC and quit if yes
 		k = cv2.waitKey(1)
+		if k % 256 == 27:
+			print("Escape pressed, exiting")
+			break
 
 	# Cleanup
 	cam.release()
