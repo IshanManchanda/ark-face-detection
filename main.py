@@ -5,70 +5,115 @@ import os
 from ball import Ball
 
 base_path = os.path.dirname(os.path.abspath(__file__))
-face_cascade = cv2.CascadeClassifier(
-	os.path.join(base_path, 'resources/haarcascade_frontalface.xml')
+model_path = os.path.join(
+	base_path, "models/res10_300x300_ssd_iter_140000.caffemodel"
 )
+config_path = os.path.join(base_path, "models/deploy.prototxt.txt")
+net = cv2.dnn.readNetFromCaffe(config_path, model_path)
 
 
 def find_face(img):
-	# Convert the img to grayscale and then run haarcascade-based
-	# face detection
-	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-	faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+	# Img, Scale factor (to scale img), size (of output image),
+	# mean (to subtract from img), swapRB (RGB -> BGR), crop
+	blob = cv2.dnn.blobFromImage(img, 1.0, (300, 300), [104, 117, 123], False, False)
+	h, w, _ = img.shape
 
-	# No faces found, return False for success
-	if len(faces) == 0:
-		return False, (0, 0, 0, 0)
+	# Set the input to the NN and feedforward
+	net.setInput(blob)
+	detections = net.forward()
 
-	# Multiple faces found, we'll pick the face with the largest bounding area
-	if len(faces) > 1:
-		return True, max(faces, key=lambda f: f[2] * f[3])
+	# return False if no detections
+	if not detections.shape[2]:
+		return False, None
 
-	# Found a single face, return it along with True for success
-	return True, faces[0]
+	# We pick the detection with maximum confidence
+	max_confidence = 0
+	x1 = y1 = x2 = y2 = 0
+	for i in range(detections.shape[2]):
+		confidence = detections[0, 0, i, 2]
+
+		if confidence > max_confidence:
+			max_confidence = confidence
+			x1 = int(detections[0, 0, i, 3] * w)
+			y1 = int(detections[0, 0, i, 4] * h)
+			x2 = int(detections[0, 0, i, 5] * w)
+			y2 = int(detections[0, 0, i, 6] * h)
+
+	# If we're less than 50% sure, we report negative
+	if max_confidence < 0.5:
+		return False, None
+	return True, (x1, y1, x2 - x1, y2 - y1)
 
 
 def main():
-	# cam = cv2.VideoCapture(0)
+	# TODO: Look into automatically getting maximum resolution
+	# We use the DirectShow backend to use maximum camera resolution
 	cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-	cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-	cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
 	size = np.array([1280, 720])
+	cam.set(cv2.CAP_PROP_FRAME_WIDTH, size[0])
+	cam.set(cv2.CAP_PROP_FRAME_HEIGHT, size[1])
+
+	# Create a named window to hold the game and resize it
 	cv2.namedWindow("game", cv2.WINDOW_NORMAL)
 	cv2.resizeWindow("game", *size)
 
+	# Create ball object with initial position, velocity, and size
 	pos = np.array([100, 100])
 	vel = 15 * np.array([2, 2])
 	ball = Ball(pos, vel, 60, size)
 
-	head_pos = np.array([0, 0])
-	head_radius = 0
+	# Initialize variables to hold detected face information
+	face_x = face_y = face_w = face_h = 0
 
 	while True:
+		# Read in frame from camera and terminate if unsuccessful
 		ret, frame = cam.read()
 		if not ret:
 			print("failed to grab frame")
 			break
+
+		# Mirror frame horizontally to make game more intuitive
 		frame = cv2.flip(frame, 1)
 
-		success, (x, y, w, h) = find_face(frame)
+		# Apply face detection and get coordinates + size
+		success, face_data = find_face(frame)
+
+		# If no frame was detected, we'll simply use the previous frame's
+		# coordinates but increase the size slightly to accommodate movement
 		if success:
-			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-			head_pos = np.array([x + w // 2, y + h // 2])
-			head_radius = max(w // 2, h // 2)
-			cv2.circle(frame, head_pos, head_radius, (50, 50, 255), 2)
+			face_x, face_y, face_w, face_h = face_data
+		else:
+			face_x -= int(face_w * 0.005)
+			face_y -= int(face_h * 0.005)
+			face_w = int(face_w * 1.01)
+			face_h = int(face_h * 1.01)
 
-		game_over = ball.update(head_pos, head_radius)
+		# Get head position and radius for collision detection and masking
+		face_pos = np.array([face_x + face_w // 2, face_y + face_h // 2])
+		face_radius = max(face_w, face_h) // 2
+
+		# Apply mask and keep only the detected face
+		mask = np.zeros(size[::-1], dtype=np.uint8)
+		cv2.circle(mask, face_pos, face_radius, 1, -1)
+		game_frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+		# Update the ball's position, checking for collisions
+		game_over = ball.update(face_pos, face_radius)
+
+		# If game over, print and wait
 		if game_over:
+			# TODO: Show a "press any button to continue on screen"
 			print("Game Over.")
+			k = cv2.waitKey(0)
 			break
-		ball.draw(frame)
 
-		cv2.imshow("game", frame)
+		# Otherwise draw the ball and display the frame
+		ball.draw(game_frame)
+		cv2.imshow("game", game_frame)
+		# TODO: Check if k == ESC and break
 		k = cv2.waitKey(1)
-		# Check if k == ESC and break
 
+	# Cleanup
 	cam.release()
 	cv2.destroyAllWindows()
 

@@ -13,12 +13,12 @@ class Ball:
 		# Draw the ball on the given image
 		cv2.circle(img, self.pos, self.radius, (255, 150, 50), -1)
 
-	def update(self, head_pos, head_radius):
+	def update(self, face_pos, face_radius):
 		# Update position
 		self.pos += self.vel
 
 		# Check for collision with head
-		self.check_collision(head_pos, head_radius)
+		self.check_collision(face_pos, face_radius)
 
 		# Check for collision with boundaries and return game_over flag
 		return self.check_bounds()
@@ -42,26 +42,26 @@ class Ball:
 		# Game not over, return False
 		return False
 
-	def check_collision(self, head_pos, head_radius):
+	def check_collision(self, face_pos, face_radius):
 		# Get squared distance between head and ball
-		dist_sq = np.sum(np.square(head_pos - self.pos))
+		dist_sq = np.sum(np.square(face_pos - self.pos))
 
 		# If this is less than the square of the sum of the radii, collision
-		if dist_sq <= (head_radius + self.radius) ** 2:
+		if dist_sq <= (face_radius + self.radius) ** 2:
 			# TODO: Improve collision logic
 
 			# If ball is much higher, just rebound y
-			if self.pos[1] + head_radius * 0.7 < head_pos[1]:
+			if self.pos[1] + face_radius * 0.7 < face_pos[1]:
 				self.vel[1] = -abs(self.vel[1])
 
 			# If ball is near middle, rebound both
-			elif self.pos[1] < head_pos[1]:
+			elif self.pos[1] < face_pos[1]:
 				self.vel[1] = -abs(self.vel[1])
 
-				sign = 1 if self.pos[0] >= head_pos[0] else -1
+				sign = 1 if self.pos[0] >= face_pos[0] else -1
 				self.vel[0] = sign * abs(self.vel[0])
 
 			# If ball is below, rebound x and let game end
 			else:
-				sign = 1 if self.pos[0] >= head_pos[0] else -1
+				sign = 1 if self.pos[0] >= face_pos[0] else -1
 				self.vel[0] = sign * abs(self.vel[0])
