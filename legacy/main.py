@@ -7,7 +7,7 @@ from ball import Ball
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 face_cascade = cv2.CascadeClassifier(
-	os.path.join(base_path, 'resources/haarcascade_frontalface.xml')
+	os.path.join(base_path, 'models/haarcascade_frontalface.xml')
 )
 
 
