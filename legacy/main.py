@@ -1,6 +1,7 @@
+import os
+
 import cv2
 import numpy as np
-import os
 
 from ball import Ball
 
@@ -29,48 +30,81 @@ def find_face(img):
 
 
 def main():
-	# cam = cv2.VideoCapture(0)
+	# TODO: Look into automatically getting maximum resolution
+	# We use the DirectShow backend to use maximum camera resolution
 	cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-	cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-	cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
 	size = np.array([1280, 720])
+	cam.set(cv2.CAP_PROP_FRAME_WIDTH, size[0])
+	cam.set(cv2.CAP_PROP_FRAME_HEIGHT, size[1])
+
+	# Create a named window to hold the game and resize it
 	cv2.namedWindow("game", cv2.WINDOW_NORMAL)
 	cv2.resizeWindow("game", *size)
 
-	pos = np.array([100, 100])
-	vel = 15 * np.array([2, 2])
+	# Create ball object with initial position, velocity, and size
+	pos = np.array([100, 100], dtype=np.float64)
+	vel = 15 * np.array([2, 2], dtype=np.float64)
 	ball = Ball(pos, vel, 60, size)
 
-	head_pos = np.array([0, 0])
-	head_radius = 0
+	# Initialize variables to hold detected face information
+	face_x = face_y = face_w = face_h = 0
 
 	while True:
+		# Read in frame from camera and terminate if unsuccessful
 		ret, frame = cam.read()
 		if not ret:
 			print("failed to grab frame")
 			break
+
+		# Mirror frame horizontally to make game more intuitive
 		frame = cv2.flip(frame, 1)
 
-		success, (x, y, w, h) = find_face(frame)
+		# Apply face detection and get coordinates + size
+		success, face_data = find_face(frame)
+
+		# If no frame was detected, we'll simply use the previous frame's
+		# coordinates but increase the size slightly to accommodate movement
 		if success:
-			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-			head_pos = np.array([x + w // 2, y + h // 2])
-			head_radius = max(w // 2, h // 2)
-			cv2.circle(frame, head_pos, head_radius, (50, 50, 255), 2)
+			face_x, face_y, face_w, face_h = face_data
+		else:
+			face_x -= int(face_w * 0.005)
+			face_y -= int(face_h * 0.005)
+			face_w = int(face_w * 1.01)
+			face_h = int(face_h * 1.01)
 
-		game_over = ball.update(head_pos, head_radius)
+		# Get head position and radius for collision detection and masking
+		face_pos = np.array([face_x + face_w // 2, face_y + face_h // 2])
+		face_radius = max(face_w, face_h) // 2
+
+		# Apply mask and keep only the detected face
+		mask = np.zeros(size[::-1], dtype=np.uint8)
+		cv2.circle(mask, face_pos, face_radius, 1, -1)
+		game_frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+		# Update the ball's position, checking for collisions
+		game_over = ball.update(face_pos, face_radius)
+
+		# Draw the ball on the current frame
+		ball.draw(game_frame)
+
+		# If game over, show message and wait for user to press key
 		if game_over:
-			print("Game Over.")
-			k = cv2.waitKey(100)
+			# TODO: Draw Game Over on the screen
+			# TODO: Show a "press any button to continue on screen"
+			print("Game Over. Press any key to continue")
+			cv2.waitKey(0)
 			break
-		ball.draw(frame)
 
-		cv2.imshow("game", frame)
+		# Draw the frame
+		cv2.imshow("game", game_frame)
+
+		# Check if user has pressed ESC and quit if yes
 		k = cv2.waitKey(1)
-		# Check if k == ESC and break
+		if k % 256 == 27:
+			print("Escape pressed, exiting")
+			break
 
-	# Draw
+	# Cleanup
 	cam.release()
 	cv2.destroyAllWindows()
 

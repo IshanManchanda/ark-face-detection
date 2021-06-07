@@ -1,6 +1,7 @@
+import os
+
 import cv2
 import numpy as np
-import os
 
 from ball import Ball
 
@@ -110,7 +111,7 @@ def main():
 			# TODO: Draw Game Over on the screen
 			# TODO: Show a "press any button to continue on screen"
 			print("Game Over. Press any key to continue")
-			k = cv2.waitKey(0)
+			cv2.waitKey(0)
 			break
 
 		# Draw the frame
