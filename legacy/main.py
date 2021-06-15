@@ -41,6 +41,11 @@ def main():
 	except Exception as e:
 		print(e)
 		print("Backend and camera resolution values may need to be changed.")
+		try:
+			cam.release()
+		except Exception:
+			pass
+		return
 
 	# Create a named window to hold the game and resize it
 	cv2.namedWindow("game", cv2.WINDOW_NORMAL)
