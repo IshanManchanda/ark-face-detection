@@ -5,6 +5,7 @@ import numpy as np
 
 from ball import Ball
 
+# Load Caffe model
 base_path = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(
 	base_path, "models/res10_300x300_ssd_iter_140000.caffemodel"
@@ -14,7 +15,11 @@ net = cv2.dnn.readNetFromCaffe(config_path, model_path)
 
 
 def find_face(img):
-	# Img, Scale factor (to scale img), size (of output image),
+	# Convert image to blob for NN input
+	# BLOB stands for Binary Large OBject, and is essentially a contour
+	# which is represented by certain features like Circularity, Area,
+	# Compactness, Perimeter, Convexity, Center of Mass, etc.
+	# Args: Img, Scale factor (to scale img), size (of output image),
 	# mean (to subtract from img), swapRB (RGB -> BGR), crop
 	blob = cv2.dnn.blobFromImage(
 		img, 1.0, (300, 300), [104, 117, 123], False, False
@@ -22,7 +27,7 @@ def find_face(img):
 
 	# Set the input to the NN and feedforward
 	net.setInput(blob)
-	detections = net.forward()
+	detections = net.forward()  # Returns a list of 4D output blobs
 
 	# return False if no detections
 	if not detections.shape[2]:
@@ -108,8 +113,6 @@ def main():
 
 		# If game over, show message and wait for user to press key
 		if game_over:
-			# TODO: Draw Game Over on the screen
-			# TODO: Show a "press any button to continue on screen"
 			print("Game Over. Press any key to continue")
 			cv2.waitKey(0)
 			break
