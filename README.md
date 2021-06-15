@@ -1,4 +1,4 @@
-# ARK Task 3: Pathfinding & CV Puzzle
+# ARK Task 2: Face Detection
 
 ### Project Structure
 main.py is the entry-point into the project which imports the Ball class
