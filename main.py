@@ -56,10 +56,14 @@ def find_face(img):
 def main():
 	# TODO: Look into automatically getting maximum resolution
 	# We use the DirectShow backend to use maximum camera resolution
-	cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-	size = np.array([1280, 720])
-	cam.set(cv2.CAP_PROP_FRAME_WIDTH, size[0])
-	cam.set(cv2.CAP_PROP_FRAME_HEIGHT, size[1])
+	try:
+		cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+		size = np.array([1280, 720])
+		cam.set(cv2.CAP_PROP_FRAME_WIDTH, size[0])
+		cam.set(cv2.CAP_PROP_FRAME_HEIGHT, size[1])
+	except Exception as e:
+		print(e)
+		print("Backend and camera resolution values may need to be changed.")
 
 	# Create a named window to hold the game and resize it
 	cv2.namedWindow("game", cv2.WINDOW_NORMAL)
@@ -86,7 +90,7 @@ def main():
 		# Apply face detection and get coordinates + size
 		success, face_data = find_face(frame)
 
-		# If no frame was detected, we'll simply use the previous frame's
+		# If no face was detected, we'll simply use the previous frame's
 		# coordinates but increase the size slightly to accommodate movement
 		if success:
 			face_x, face_y, face_w, face_h = face_data
@@ -96,11 +100,11 @@ def main():
 			face_w = int(face_w * 1.01)
 			face_h = int(face_h * 1.01)
 
-		# Get head position and radius for collision detection and masking
+		# Get face position and radius for collision detection and masking
 		face_pos = np.array([face_x + face_w // 2, face_y + face_h // 2])
 		face_radius = max(face_w, face_h) // 2
 
-		# Apply mask and keep only the detected face
+		# Apply mask to keep only the detected face
 		mask = np.zeros(size[::-1], dtype=np.uint8)
 		cv2.circle(mask, face_pos, face_radius, 1, -1)
 		game_frame = cv2.bitwise_and(frame, frame, mask=mask)
